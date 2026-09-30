@@ -4,34 +4,30 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      frp_version:
-        description: 'FRP Version'
-        required: true
-        default: 'v0.71.0'
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - name: frpc
-            context: ./frpc
-          - name: frps
-            context: ./frps
-        flavor:
-          - name: standard
-            suffix: ""
-            opt: standard
-          - name: modern
-            suffix: "-modern"
-            opt: modern
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: frpc
+            context: ./frpc
+            optimization: standard
+          - name: frps
+            context: ./frps
+            optimization: standard
+          - name: frpc-modern
+            context: ./frpc
+            optimization: modern
+          - name: frps-modern
+            context: ./frps
+            optimization: modern
 
     steps:
       - name: Checkout repository
@@ -50,26 +46,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.service.name }}${{ matrix.flavor.suffix }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.service.context }}
+          context: ${{ matrix.context }}
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/${{ toLowerCase(github.repository_owner) }}/${{ matrix.name }}:latest
           build-args: |
-            FRP_VERSION=${{ github.event.inputs.frp_version || 'v0.71.0' }}
-            OPTIMIZATION=${{ matrix.flavor.opt }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            OPTIMIZATION=${{ matrix.optimization }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
