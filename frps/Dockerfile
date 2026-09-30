@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 ARG FRP_VERSION=v0.71.0
 
 FROM --platform=$BUILDPLATFORM alpine:latest AS source
@@ -23,6 +21,7 @@ FROM --platform=$BUILDPLATFORM golang:alpine AS backend-builder
 ARG FRP_VERSION
 ARG TARGETOS
 ARG TARGETARCH
+ARG OPTIMIZATION=standard
 RUN apk upgrade --no-cache && apk add --no-cache make ca-certificates tzdata
 WORKDIR /src
 COPY --from=source /src /src
@@ -30,10 +29,15 @@ COPY --from=frontend-builder /src/web/frps/dist ./web/frps/dist
 RUN set -eux; \
     ARCH="${TARGETARCH:-$(go env GOARCH)}"; \
     OS="${TARGETOS:-$(go env GOOS)}"; \
-    echo ">>> Compiling frps for OS=$OS ARCH=$ARCH (Version: ${FRP_VERSION})"; \
-    if [ "$ARCH" = "amd64" ]; then \
-        export GOAMD64="v3"; \
-        echo ">>> Applied AVX2 optimizations (GOAMD64=v3)"; \
+    echo ">>> Compiling frps for OS=$OS ARCH=$ARCH (Version: ${FRP_VERSION}, Optimization: ${OPTIMIZATION})"; \
+    if [ "$OPTIMIZATION" = "modern" ]; then \
+        if [ "$ARCH" = "amd64" ]; then \
+            export GOAMD64="v3"; \
+            echo ">>> Applied AVX2 optimizations (GOAMD64=v3)"; \
+        elif [ "$ARCH" = "arm64" ]; then \
+            export GOARM64="v8.2"; \
+            echo ">>> Applied ARM64 v8.2 optimizations (GOARM64=v8.2)"; \
+        fi; \
     fi; \
     CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build \
     -trimpath \
