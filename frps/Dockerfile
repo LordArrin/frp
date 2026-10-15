@@ -1,4 +1,4 @@
-ARG FRP_VERSION=v0.71.0
+ARG FRP_VERSION=v0.71.1
 
 FROM --platform=$BUILDPLATFORM alpine:latest AS source
 ARG FRP_VERSION
