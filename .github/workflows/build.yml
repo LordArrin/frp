@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: 'Force build even if version has not changed'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   check-version-change:
@@ -33,6 +40,7 @@ jobs:
               else
                 echo "Version unchanged: $CURRENT_VERSION"
                 echo "version_changed=false" >> $GITHUB_OUTPUT
+                echo "frp_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT # Исправлено: всегда выводим версию
               fi
             else
               echo "First commit or cannot access previous version, building anyway"
@@ -47,7 +55,7 @@ jobs:
 
   build:
     needs: check-version-change
-    if: needs.check-version-change.outputs.version_changed == 'true'
+    if: needs.check-version-change.outputs.version_changed == 'true' || github.event.inputs.force_build == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
